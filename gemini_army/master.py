@@ -54,15 +54,23 @@ async def run_master(command: str):
         json.dump({"project_goal": command, "status": "started"}, f)
 
     team_roles = plan["team"]
-    slave_processes = []
+    slave_processes_info = []
     
     print(f"Master Agent: Assembling team of {len(team_roles)} agents: {', '.join(team_roles)}")
     for i, role in enumerate(team_roles):
         slave_id = f"slave_{i}"
+        
+        # Write the role file immediately after determining the role for this slave_id
+        role_file = config.COMM_DIR / f"{slave_id}.role"
+        with open(role_file, "w") as f:
+            f.write(f"You are an expert {role}. Your goal is to be a world-class specialist in your domain.")
+
         process = await asyncio.create_subprocess_exec(
             "python", "-m", "gemini_army.main", "slave", f"listen --id {slave_id}",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE # Capture stdout/stderr for potential debugging
         )
-        slave_processes.append({"id": slave_id, "role": role, "process": process})
+        slave_processes_info.append({"id": slave_id, "role": role, "process": process})
         print(f"Launched {slave_id} with role: {role}")
 
     # Give slaves a moment to start up
@@ -74,7 +82,7 @@ async def run_master(command: str):
         task = step["task"]
         
         # Find a slave with the required role
-        slave_to_assign = next((s for s in slave_processes if s["role"] == agent_role), None)
+        slave_to_assign = next((s for s in slave_processes_info if s["role"] == agent_role), None)
 
         if not slave_to_assign:
             print(f"Master Agent: No agent found with role '{agent_role}' for step {i+1}. Skipping.")
@@ -84,7 +92,7 @@ async def run_master(command: str):
         print(f"\n--- Step {i+1}: Assigning task to {slave_id} ({agent_role}) ---")
         print(f"Task: {task}")
         
-        result = await send_command_to_slave(slave_id, slave_to_assign["role"], task)
+        result = await send_command_to_slave(slave_id, task) # Removed role parameter
         
         print(f"--- Result from {slave_id} ---")
         print(result)
@@ -93,18 +101,13 @@ async def run_master(command: str):
 
     # Terminate slave processes
     print("\nMaster Agent: All tasks completed. Terminating slave agents.")
-    for slave in slave_processes:
+    for slave in slave_processes_info:
         slave["process"].terminate()
     
-    await asyncio.gather(*[s["process"].wait() for s in slave_processes])
+    await asyncio.gather(*[s["process"].wait() for s in slave_processes_info])
     print("All slaves terminated.")
 
-async def send_command_to_slave(slave_id: str, role: str, command: str):
-    # Write the role file
-    role_file = config.COMM_DIR / f"{slave_id}.role"
-    with open(role_file, "w") as f:
-        f.write(f"You are an expert {role}. Your goal is to be a world-class specialist in your domain.")
-
+async def send_command_to_slave(slave_id: str, command: str): # Removed role parameter
     # Write the command file
     cmd_file = config.COMM_DIR / f"{slave_id}.cmd"
     with open(cmd_file, "w") as f:
