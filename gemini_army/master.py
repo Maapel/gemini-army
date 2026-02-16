@@ -9,18 +9,26 @@ async def create_project_plan(command: str):
     """
     print("Master Agent: Creating a project plan...")
     planning_prompt = f"""
-    Based on the user's request: '{command}', define a team of agents and a sequence of tasks to accomplish the goal.
-    Output the result as a single JSON object with two keys:
-    1. "team": A list of strings, where each string is a role for an agent (e.g., "frontend_developer").
-    2. "plan": A list of JSON objects, where each object has an "agent" key (the role from the team list) and a "task" key (a specific instruction for that agent).
+    Based on the user's request: '{command}', define a team of specialized agents and a sequence of granular, atomic tasks to accomplish the goal.
+    For each task, clearly specify:
+    1. The "agent" responsible (must be one of the roles in the "team" list).
+    2. The "task" (a specific, actionable instruction for that agent).
+    3. The "expected_output" (a clear description of what the agent should produce upon completion, e.g., "a JSON object summarizing the design," "create HTML/CSS files in the 'frontend/' directory").
+
+    Output the result as a single, full, valid JSON object with two keys, and nothing else:
+    1. "team": A list of strings, where each string is a role for an agent (e.g., "frontend_developer", "ui_ux_designer", "backend_engineer", "qa_tester", "devops_engineer").
+    2. "plan": A list of JSON objects, where each object has "agent", "task", and "expected_output" keys.
 
     Example:
     {{
-      "team": ["project_manager", "backend_developer", "frontend_developer"],
+      "team": ["project_manager", "ui_ux_designer", "frontend_developer", "backend_developer", "qa_tester"],
       "plan": [
-        {{"agent": "project_manager", "task": "Break down the feature into smaller tickets."}},
-        {{"agent": "backend_developer", "task": "Implement the API endpoints based on the tickets."}},
-        {{"agent": "frontend_developer", "task": "Build the UI to consume the new API."}}
+        {{"agent": "project_manager", "task": "Initial project setup and scope definition. List all necessary directories and initial file structures.", "expected_output": "A JSON object describing project structure and initial setup files."}},
+        {{"agent": "ui_ux_designer", "task": "Design wireframes and mockups for homepage, about, projects, and contact pages.", "expected_output": "Create 'design/wireframes.md' and 'design/mockups.md' files describing the UI/UX."}},
+        {{"agent": "backend_developer", "task": "Develop a RESTful API for project data and contact form submissions. Focus on core endpoints.", "expected_output": "Create 'backend/' directory with Python/Node.js files implementing the API, and output API endpoints in a JSON object."}},
+        {{"agent": "frontend_developer", "task": "Build the static HTML/CSS structure based on UI/UX designs.", "expected_output": "Create 'frontend/' directory with HTML/CSS files."}},
+        {{"agent": "frontend_developer", "task": "Integrate frontend with backend API for dynamic project display and contact form.", "expected_output": "Update 'frontend/' files, and output a JSON object confirming successful integration."}},
+        {{"agent": "qa_tester", "task": "Perform initial functional testing of all pages and API endpoints.", "expected_output": "A JSON object summarizing test results, bugs found, and suggestions for improvement."}}
       ]
     }}
     """
