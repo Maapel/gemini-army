@@ -13,7 +13,7 @@ async def create_project_plan(command: str):
     For each task, clearly specify:
     1. The "agent" responsible (must be one of the roles in the "team" list).
     2. The "task" (a specific, actionable instruction for that agent).
-    3. The "expected_output" (a clear description of what the agent should produce upon completion, e.g., "a JSON object summarizing the design," "create HTML/CSS files in the 'frontend/' directory").
+    3. The "expected_output" (a clear, CONCISE description of what the agent should produce upon completion. If generating code or content, specify file paths, and output a brief summary, NOT the full content. E.g., "a JSON object summarizing the design," "create HTML/CSS files in the 'frontend/' directory, and briefly confirm completion").
 
     Output the result as a single, full, valid JSON object with two keys, and nothing else:
     1. "team": A list of strings, where each string is a role for an agent (e.g., "frontend_developer", "ui_ux_designer", "backend_engineer", "qa_tester", "devops_engineer").
