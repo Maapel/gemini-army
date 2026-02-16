@@ -2,6 +2,7 @@ import asyncio
 import os
 import time
 import subprocess
+import json
 from . import config
 
 def run_slave(command: str):
@@ -23,29 +24,62 @@ def run_slave(command: str):
 def listen_for_commands(slave_id: str):
     cmd_file = config.COMM_DIR / f"{slave_id}.cmd"
     res_file = config.COMM_DIR / f"{slave_id}.res"
+    role_file = config.COMM_DIR / f"{slave_id}.role"
+    shared_context_file = config.COMM_DIR / "shared_context.json"
+
+    system_prompt = "You are a helpful assistant." # Default role
 
     while True:
+        # Load system prompt
+        if role_file.exists():
+            with open(role_file, "r") as f:
+                system_prompt = f.read().strip()
+        
         if cmd_file.exists():
             try:
                 with open(cmd_file, "r") as f:
                     command = f.read()
                 
-                print(f"Slave {slave_id} received command: {command}")
+                print(f"Slave {slave_id} ({system_prompt.splitlines()[0]}): Received command: {command}")
+
+                # Load shared context
+                shared_context = {}
+                if shared_context_file.exists():
+                    try:
+                        with open(shared_context_file, "r") as f:
+                            shared_context = json.load(f)
+                    except json.JSONDecodeError:
+                        print(f"Slave {slave_id}: Warning: shared_context.json is not valid JSON. Ignoring.")
+                        shared_context = {}
+
+                full_prompt = f"{system_prompt}\n\nCurrent Shared Context: {json.dumps(shared_context, indent=2)}\n\nTask: {command}"
                 
                 # Execute the command using the gemini cli
                 try:
                     process = subprocess.run(
-                        ["gemini", "-p", command, "--approval-mode", "yolo"],
+                        ["gemini", "-p", full_prompt, "--approval-mode", "yolo"],
                         capture_output=True,
                         text=True,
                         check=True
                     )
-                    result = process.stdout
+                    gemini_output = process.stdout
                 except (subprocess.CalledProcessError, FileNotFoundError) as e:
-                    result = f"Error executing command: {e}"
+                    gemini_output = f"Error executing command: {e}"
 
+                # Try to update shared context from Gemini's output
+                try:
+                    output_json = json.loads(gemini_output)
+                    # Update shared context, allowing new keys and overwriting existing ones
+                    shared_context.update(output_json)
+                    with open(shared_context_file, "w") as f:
+                        json.dump(shared_context, f, indent=2)
+                    print(f"Slave {slave_id}: Updated shared context.")
+                except json.JSONDecodeError:
+                    print(f"Slave {slave_id}: Gemini output was not JSON. Not updating shared context.")
+                    # If not JSON, just pass the raw output as the result
+                
                 with open(res_file, "w") as f:
-                    f.write(result)
+                    f.write(gemini_output)
 
             finally:
                 # Clean up the command file
