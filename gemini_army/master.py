@@ -37,17 +37,25 @@ async def create_project_plan(command: str):
             ["gemini", "-p", planning_prompt, "--approval-mode", "yolo"],
             capture_output=True,
             text=True,
-            check=True
+            # Removed check=True to allow capturing output even on non-zero exit codes
         )
+        print(f"Gemini return code: {process.returncode}")
         print(f"Gemini stdout:\n{process.stdout}")
         print(f"Gemini stderr:\n{process.stderr}")
+        
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, process.args, output=process.stdout, stderr=process.stderr)
+
         # Clean the output to extract only the JSON
         json_str = process.stdout[process.stdout.find('{'):process.stdout.rfind('}')+1]
         plan = json.loads(json_str)
         print("Master Agent: Project plan created successfully.")
         return plan
     except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Master Agent: Error creating project plan: {e}")
+        error_message = f"Master Agent: Error creating project plan: {e}"
+        if isinstance(e, subprocess.CalledProcessError):
+            error_message += f"\nStdout: {e.output}\nStderr: {e.stderr}"
+        print(error_message)
         return None
 
 async def run_master(command: str):
