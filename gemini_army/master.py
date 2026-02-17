@@ -39,6 +39,8 @@ async def create_project_plan(command: str):
             text=True,
             check=True
         )
+        print(f"Gemini stdout:\n{process.stdout}")
+        print(f"Gemini stderr:\n{process.stderr}")
         # Clean the output to extract only the JSON
         json_str = process.stdout[process.stdout.find('{'):process.stdout.rfind('}')+1]
         plan = json.loads(json_str)
